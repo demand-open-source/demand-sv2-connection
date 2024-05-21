@@ -1,0 +1,16 @@
+[package]
+name = "demand-sv2-connection"
+version = "0.0.1"
+authors = ["fi3 <email@email.org>"]
+edition = "2021"
+description = "Networking utils for SV2 roles"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/stratum-mining/stratum"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+binary_sv2 = { version = "1.0.0"}
+codec_sv2 = { version = "1.0.1", features=["noise_sv2"] }
+const_sv2 = {version = "1.0.0"}
+tracing = { version = "0.1" }
+futures = "0.3.28"
