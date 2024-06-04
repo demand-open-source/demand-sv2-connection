@@ -2,7 +2,6 @@ use binary_sv2::{Deserialize, GetSize, Serialize};
 
 pub mod noise_connection_tokio;
 
-use tokio::sync::mpsc::{Receiver, Sender,error::SendError};
 use codec_sv2::{Error as CodecError, HandShakeFrame, HandshakeRole, StandardEitherFrame};
 use const_sv2::{
     INITIATOR_EXPECTED_HANDSHAKE_MESSAGE_SIZE, RESPONDER_EXPECTED_HANDSHAKE_MESSAGE_SIZE,
@@ -12,6 +11,7 @@ use std::{
     convert::TryInto,
     sync::{atomic::AtomicBool, Arc},
 };
+use tokio::sync::mpsc::{error::SendError, Receiver, Sender};
 
 #[derive(Debug)]
 pub enum Error {
@@ -52,9 +52,10 @@ async fn initialize_as_downstream<
 
     // Create and send first handshake message
     let first_message = state.step_0()?;
-    sender_outgoing.send(first_message.into()).await.map_err(|_| {
-        Error::SendError
-    })?;
+    sender_outgoing
+        .send(first_message.into())
+        .await
+        .map_err(|_| Error::SendError)?;
 
     // Receive and deserialize second handshake message
     let second_message = receiver_incoming.recv().await.ok_or(Error::RecvError)?;

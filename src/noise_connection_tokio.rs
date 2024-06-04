@@ -1,8 +1,8 @@
 use crate::Error;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use binary_sv2::{Deserialize, Serialize};
 use futures::lock::Mutex;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -92,7 +92,6 @@ impl Connection {
                                 if let codec_sv2::Error::MissingBytes(_) = e {
                                 } else {
                                     error!("Shutting down noise stream reader! {:#?}", e);
-                                    drop(sender_incoming);
                                     task::yield_now().await;
                                     break;
                                 }
@@ -104,16 +103,24 @@ impl Connection {
                             "Disconnected from client while reading : {} - {}",
                             e, &address
                         );
-
-                        //kill thread without a panic - don't need to panic everytime a client disconnects
-                        drop(sender_incoming);
                         task::yield_now().await;
                         break;
                     }
                 }
             }
+            drop(sender_incoming);
+            drop(cloned1);
+            drop(reader);
+            let mut times = 0;
+            while !decoder.droppable() {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                if times >= 10 {
+                    error!("Irrecoverable error impossible to free decoder");
+                    std::process::exit(1);
+                }
+                times += 1;
+            }
         });
-
 
         // ENCODE AND SEND INCOMING MESSAGES TO TCP STREAM
         let send_task = task::spawn(async move {
@@ -125,26 +132,36 @@ impl Connection {
                 match received {
                     Some(frame) => {
                         let mut connection = cloned2.lock().await;
+                        match encoder.encode(frame, &mut connection.state) {
+                            Ok(b) => {
+                                drop(connection);
 
-                        let b = encoder.encode(frame, &mut connection.state).unwrap();
+                                let b = b.as_ref();
 
-                        drop(connection);
-
-                        let b = b.as_ref();
-
-                        match (writer).write_all(b).await {
-                            Ok(_) => (),
+                                match (writer).write_all(b).await {
+                                    Ok(_) => (),
+                                    Err(e) => {
+                                        let _ = writer.shutdown().await;
+                                        // Just fail and force to reinitialize everything
+                                        error!(
+                                        "Disconnecting from client due to error writing: {} - {}",
+                                        e, &address
+                                    );
+                                        task::yield_now().await;
+                                        break;
+                                    }
+                                }
+                            }
                             Err(e) => {
-                                let _ = writer.shutdown().await;
-                                // Just fail and force to reinitialize everything
                                 error!(
-                                    "Disconnecting from client due to error writing: {} - {}",
+                                    "Disconnecting from client due to error encoding: {} - {}",
                                     e, &address
                                 );
+                                drop(connection);
                                 task::yield_now().await;
                                 break;
                             }
-                        }
+                        };
                     }
                     None => {
                         // Just fail and force to reinitialize everything
@@ -158,6 +175,19 @@ impl Connection {
                     }
                 };
                 crate::HANDSHAKE_READY.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            receiver_outgoing.close();
+            drop(receiver_outgoing);
+            drop(cloned2);
+            drop(writer);
+            let mut times = 0;
+            while !encoder.droppable() {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                if times >= 10 {
+                    error!("Irrecoverable error impossible to free encoder");
+                    std::process::exit(1);
+                }
+                times += 1;
             }
         });
 
