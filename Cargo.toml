@@ -19,9 +19,9 @@ futures = "0.3.28"
 #codec_sv2 = { path = "../stratum/protocols/v2/codec-sv2", features = ["noise_sv2"]}
 #const_sv2 = { path = "../stratum/protocols/v2/const-sv2"}
 
-binary_sv2 = { git = "https://github.com/demand-open-source/stratum", branch = "ImproveCoinbase",subdirectory = "protocols/v2/binary_sv2" }
-const_sv2 = { git = "https://github.com/demand-open-source/stratum", branch = "ImproveCoinbase",subdirectory = "protocols/v2/const_sv2" }
-codec_sv2 = { git = "https://github.com/demand-open-source/stratum", branch="ImproveCoinbase",subdirectory = "protocols/v2/codec_sv2",features = ["noise_sv2"] }
+binary_sv2 = { git = "https://github.com/demand-open-source/stratum" ,subdirectory = "protocols/v2/binary_sv2" }
+const_sv2 = { git = "https://github.com/demand-open-source/stratum" ,subdirectory = "protocols/v2/const_sv2" }
+codec_sv2 = { git = "https://github.com/demand-open-source/stratum" ,subdirectory = "protocols/v2/codec_sv2", features = ["noise_sv2"] }
 
 
 
